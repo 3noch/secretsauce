@@ -300,6 +300,13 @@ inline Dynamic<T> mkDynamic(Event<T> event, T initialValue)
     return Dynamic<T>(d);
 };
 
+template <typename Fn, typename Upstream = typename function_traits<Fn>::template arg<0>::type,
+          typename Downstream = typename function_traits<Fn>::result_type>
+inline Dynamic<Downstream> mapped(Dynamic<Upstream> in, Fn f)
+{
+    return mkDynamic(mapped(in.updated(), f), f(in.currentValue()));
+}
+
 template <typename Fn, typename T = typename function_traits<Fn>::template arg<0>::type,
           typename Result = typename function_traits<Fn>::result_type>
 inline Dynamic<Result> fold(Event<T> event, Result initialValue, Fn f)
