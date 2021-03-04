@@ -16,6 +16,7 @@ struct IEvent
 {
     using input_type = In;
     using output_type = Out;
+    virtual ~IEvent() {}
 
     virtual void fire(In const& t) = 0;
     virtual void subscribe(std::weak_ptr<std::function<void(Out const&)> const> const& f) = 0;
@@ -166,6 +167,7 @@ template <typename T>
 struct ISink
 {
     using value_type = T;
+    virtual ~ISink() {}
 
     virtual T result() const = 0;
 };
@@ -240,6 +242,7 @@ template <typename T>
 struct IDynamic
 {
     using value_type = T;
+    virtual ~IDynamic() {}
 
     virtual Event<T> updated() const = 0;
     virtual T current() const = 0;
