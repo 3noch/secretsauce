@@ -32,26 +32,26 @@ struct ThreadSafe : private boost::noncopyable
     }
 
     template <typename Result>
-    Result with(std::function<Result(T&)> f)
+    Result with(std::function<Result(T&)> const& f)
     {
         std::lock_guard<std::mutex> guard(mutex_);
         return f(t_);
     }
 
-    void with(std::function<void(T&)> f)
+    void with(std::function<void(T&)> const& f)
     {
         std::lock_guard<std::mutex> guard(mutex_);
         return f(t_);
     }
 
     template <typename Result>
-    Result with(std::function<Result(T const&)> f) const
+    Result with(std::function<Result(T const&)> const& f) const
     {
         std::lock_guard<std::mutex> guard(mutex_);
         return f(t_);
     }
 
-    void with(std::function<void(T const&)> f) const
+    void with(std::function<void(T const&)> const& f) const
     {
         std::lock_guard<std::mutex> guard(mutex_);
         f(t_);
