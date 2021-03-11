@@ -319,6 +319,8 @@ inline Dynamic<Downstream> mapped(Dynamic<Upstream> in, Fn f)
     return Dynamic<Downstream>(d);
 }
 
+// Construct a Dynamic by folding a function over an Event.
+// Note that this is a special case of foldOptional.
 template <typename Fn, typename T = typename function_traits<Fn>::template arg<0>::type,
           typename Result = typename function_traits<Fn>::result_type>
 inline Dynamic<Result> fold(Event<T> event, Result initialValue, Fn f)
@@ -329,6 +331,24 @@ inline Dynamic<Result> fold(Event<T> event, Result initialValue, Fn f)
         return selfRef.currentValue.template with<Result>([&](Result& value) {
             value = f(e, value);
             return value;
+        });
+    });
+    return Dynamic<Result>(d);
+}
+
+// Construct a Dynamic by folding a function over an Event with the ability to throw away values.
+template <typename Fn, typename T = typename function_traits<Fn>::template arg<0>::type,
+          typename Result = typename function_traits<Fn>::result_type::value_type>
+inline Dynamic<Result> foldOptional(Event<T> event, Result initialValue, Fn f)
+{
+    std::shared_ptr<BasicDynamic<Result>> d = std::make_shared<BasicDynamic<Result>>(never<Result>(), initialValue);
+    BasicDynamic<Result>& selfRef = *d;
+    d->event = mappedOptional(event, [&selfRef, f](T const& e) {
+        return selfRef.currentValue.template with<boost::optional<Result>>([&](Result& value) {
+            boost::optional<Result> const result = f(e, value);
+            if (result)
+                value = *result;
+            return result;
         });
     });
     return Dynamic<Result>(d);
