@@ -269,7 +269,7 @@ struct Dynamic final : public IDynamic<T>
 };
 
 template <typename T>
-struct BasicDynamic final : public IDynamic<T>, private boost::noncopyable
+struct BasicDynamic : public IDynamic<T>, private boost::noncopyable
 {
     BasicDynamic(Event<T> e, T initialValue)
       : currentValue(initialValue)
@@ -287,20 +287,20 @@ struct BasicDynamic final : public IDynamic<T>, private boost::noncopyable
     }
 
     ThreadSafe<T> currentValue;
-    std::shared_ptr<std::function<void(T const&)> const> updater;  // N.B. this may hold references to currentValue so
-                                                                   // must be after it
     Event<T> event;  // N.B. this may hold references to other members so much be destructed first
 };
 
 template <typename T>
 inline Dynamic<T> mkDynamic(Event<T> event, T initialValue)
 {
-    std::shared_ptr<BasicDynamic<T>> d = std::make_shared<BasicDynamic<T>>(event, initialValue);
+    std::shared_ptr<BasicDynamic<T>> d = std::make_shared<BasicDynamic<T>>(never<T>(), initialValue);
     BasicDynamic<T>& selfRef = *d;
-    d->updater = std::make_shared<std::function<void(T const&)> const>([&selfRef](T const& t) {
-        selfRef.currentValue.set(t);
+    d->event = mapped(event, [&selfRef](T const& e) {
+        return selfRef.currentValue.template with<T>([&](T& value) {
+            value = e;
+            return value;
+        });
     });
-    d->event.subscribe(d->updater);
     return Dynamic<T>(d);
 };
 
