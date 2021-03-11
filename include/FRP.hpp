@@ -53,6 +53,7 @@ struct ThreadSafeEvent final : public IEvent<T, T>, private boost::noncopyable
 {
     void fire(T const& t) override
     {
+
         // TODO: Loop over copy of subscribers instead?
         event.with([&](BasicEvent<T>& e) { e.fire(t); });
     }
@@ -272,7 +273,6 @@ struct BasicDynamic final : public IDynamic<T>, private boost::noncopyable
 {
     BasicDynamic(Event<T> e, T initialValue)
       : currentValue(initialValue)
-      , updater(std::make_shared<std::function<void(T const&)> const>([&](T const& t) { currentValue.set(t); }))
       , event(e)
     {
     }
@@ -287,7 +287,7 @@ struct BasicDynamic final : public IDynamic<T>, private boost::noncopyable
     }
 
     ThreadSafe<T> currentValue;
-    std::shared_ptr<std::function<void(T const&)> const> updater;  // N.B. this may holds references to currentValue so
+    std::shared_ptr<std::function<void(T const&)> const> updater;  // N.B. this may hold references to currentValue so
                                                                    // must be after it
     Event<T> event;  // N.B. this may hold references to other members so much be destructed first
 };
@@ -296,6 +296,10 @@ template <typename T>
 inline Dynamic<T> mkDynamic(Event<T> event, T initialValue)
 {
     std::shared_ptr<BasicDynamic<T>> d = std::make_shared<BasicDynamic<T>>(event, initialValue);
+    BasicDynamic<T>& selfRef = *d;
+    d->updater = std::make_shared<std::function<void(T const&)> const>([&selfRef](T const& t) {
+        selfRef.currentValue.set(t);
+    });
     d->event.subscribe(d->updater);
     return Dynamic<T>(d);
 };
@@ -304,7 +308,15 @@ template <typename Fn, typename Upstream = typename function_traits<Fn>::templat
           typename Downstream = typename function_traits<Fn>::result_type>
 inline Dynamic<Downstream> mapped(Dynamic<Upstream> in, Fn f)
 {
-    return mkDynamic(mapped(in.updated(), f), f(in.currentValue()));
+    std::shared_ptr<BasicDynamic<Downstream>> d = std::make_shared<BasicDynamic<Downstream>>(never<Downstream>(), f(in.current()));
+    BasicDynamic<Downstream>& selfRef = *d;
+    d->event = mapped(in.updated(), [&selfRef, f](Upstream const& e) {
+        return selfRef.currentValue.template with<Downstream>([&](Downstream& value) {
+            value = f(e);
+            return value;
+        });
+    });
+    return Dynamic<Downstream>(d);
 }
 
 template <typename Fn, typename T = typename function_traits<Fn>::template arg<0>::type,
@@ -313,8 +325,12 @@ inline Dynamic<Result> fold(Event<T> event, Result initialValue, Fn f)
 {
     std::shared_ptr<BasicDynamic<Result>> d = std::make_shared<BasicDynamic<Result>>(never<Result>(), initialValue);
     BasicDynamic<Result>& selfRef = *d;
-    d->event = mapped(event, [&selfRef, f](T const& e) { return f(e, selfRef.current()); });
-    d->event.subscribe(d->updater);
+    d->event = mapped(event, [&selfRef, f](T const& e) {
+        return selfRef.currentValue.template with<Result>([&](Result& value) {
+            value = f(e, value);
+            return value;
+        });
+    });
     return Dynamic<Result>(d);
 }
 
