@@ -24,10 +24,12 @@ target_include_directories(${PROJECT_NAME} INTERFACE $<BUILD_INTERFACE:${CMAKE_C
 target_include_directories(${PROJECT_NAME} SYSTEM INTERFACE $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>)
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_11)
 
-install(
-  DIRECTORY ${CMAKE_SOURCE_DIR}/include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+if(CMAKE_INSTALL_INCLUDEDIR)
+  install(
+    DIRECTORY ${CMAKE_SOURCE_DIR}/include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
+endif()
 
 add_executable(reflex-cpp-example
   ${PROJECT_SOURCE_DIR}/Example.cpp
